@@ -29,11 +29,12 @@ project-root/module/ # (RUST CRATES)
 ```md
 project-root/forzium/
 ├── __init__.py
-├── _module/ # Import from _forzium
-├── sub_module_1/
-├── sub_module_2/
-├── sub_module_3/
-├── sub_module_4/
+├── _module.py # Import from _forzium
+├── validation/
+├── routing/
+├── dependencies/
+├── request/
+├── response/
 └── tests/
 ```
 

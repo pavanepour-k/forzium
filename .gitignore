@@ -60,8 +60,12 @@ _tasks/
 scripts/
 11/
 *.sh
-MIGRATION_LOG.md
 
 #tmp
 .lock
 *.md
+module/target/
+forzium/_module/.so
+forzium/_module/.pyd
+*.profraw
+MIGRATION_LOG.md

@@ -29,14 +29,12 @@ project-root/module/ # (RUST CRATES)
 ```md
 project-root/forzium/
 ├── __init__.py
-├── _module.py # Import from _forzium
-└── src/ # Python package
-    ├── main.py
-    ├── package_1/
-    │   └── __init__.py
-    ├── package_2/
-    │   └── __init__.py
- 	└── tests/
+├── _module/ # Import from _forzium
+├── sub_module_1/
+├── sub_module_2/
+├── sub_module_3/
+├── sub_module_4/
+└── tests/
 ```
 
 ## Share Resources Directory Structure

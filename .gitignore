@@ -64,4 +64,4 @@ MIGRATION_LOG.md
 
 #tmp
 .lock
-_*.md
+*.md

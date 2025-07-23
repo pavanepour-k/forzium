@@ -63,7 +63,7 @@ scripts/
 
 #tmp
 .lock
-*.md
+tmp.md
 module/target/
 forzium/_module/.so
 forzium/_module/.pyd

@@ -8,5 +8,6 @@ project-root/forzium/
 ├── dependencies/
 ├── request/
 ├── response/
+├── websocket/
 └── tests/
 ```

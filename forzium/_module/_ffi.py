@@ -1,11 +1,8 @@
-"""
-Type stubs for Rust FFI library
+"""Type stubs for the Rust FFI library."""
 
-This file provides type hints for the Rust extension module to enable
-better IDE support and static type checking with mypy.
-"""
+from __future__ import annotations
 
-from typing import Dict, Any, Optional, List, Tuple, Union
+from typing import Dict, Any, Optional, List, Tuple
 
 # Version information
 __version__: str
@@ -82,7 +79,7 @@ class ResponseModule:
         def json_body(self, data: Dict[str, Any]) -> None: ...
         def text_body(self, text: str) -> None: ...
         def binary_body(self, data: bytes) -> None: ...
-        def build(self) -> 'PyHttpResponse': ...
+        def build(self) -> 'PyHttpResponse': ...  # noqa: F821
         def __repr__(self) -> str: ...
     
     class PyHttpResponse:

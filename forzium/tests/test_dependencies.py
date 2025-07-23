@@ -1,5 +1,4 @@
 import pytest
-import inspect
 from typing import Optional, Dict, Any
 from forzium.dependencies import DependencyInjector
 from forzium.request import Request

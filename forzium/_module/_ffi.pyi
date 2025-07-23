@@ -1,5 +1,5 @@
 """Type stubs for Rust FFI bindings."""
-from typing import Any, Dict, Tuple, List
+from typing import Any, Dict, Tuple
 
 __version__: str
 

@@ -5,7 +5,7 @@ This module provides high-level validation functions that wrap the
 low-level Rust FFI functions with better error handling and type hints.
 """
 
-from typing import Union, Any, Optional, Dict
+from typing import Any, Optional, Dict
 import logging
 
 from ._module import (
@@ -177,7 +177,6 @@ def f64_validator(min_val: float, max_val: float) -> NumericValidator:
 def schema_validator(strict: bool = False) -> SchemaValidator:
     """Create a JSON schema validator."""
     return SchemaValidator(strict)
-
 
 __all__ = [
     # High-level functions

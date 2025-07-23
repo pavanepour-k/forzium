@@ -3,11 +3,14 @@
 project-root/forzium/
 ├── __init__.py
 ├── _module.py # Import from _forzium
-├── validation/
-├── routing/
-├── dependencies/
+├── background/
+├── exceptions/
+├── middleware/
 ├── request/
 ├── response/
+├── routing/
+├── security/
+├── validation/
 ├── websocket/
 └── tests/
 ```

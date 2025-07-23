@@ -2,13 +2,16 @@
 name = "pyo3-forzium"
 version = "0.1.0"
 edition = "2021"
+
 [lib]
 name = "_forzium"
 crate-type = ["cdylib"]
+
 [dependencies]
-forzium-core = { path = "../forzium-core" }
+forzium-core = { package = "forzium", path = "../forzium-core" }
 pyo3 = { workspace = true }
 log = { workspace = true }
+
 [features]
 default = []
 python-testing = ["pyo3/auto-initialize"]

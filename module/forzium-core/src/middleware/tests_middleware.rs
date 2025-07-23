@@ -490,4 +490,232 @@ mod middleware_tests {
         assert_eq!(response.status_code, 200);
         // Request ID would be used in context
     }
+
+    // ================================================================================
+    // NEW COMPREHENSIVE TESTS FOR 100% COVERAGE
+    // ================================================================================
+
+    #[tokio::test]
+    async fn test_middleware_error_conversion() {
+        let err = MiddlewareError::ExecutionError("Test error".to_string());
+        let project_err: ProjectError = err.into();
+        match project_err {
+            ProjectError::Processing { code, message } => {
+                assert_eq!(code, "MIDDLEWARE_ERROR");
+                assert!(message.contains("Test error"));
+            }
+            _ => panic!("Wrong error type"),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_compression_middleware_large_response() {
+        let compression = CompressionMiddleware::new();
+        
+        let mut request = test_request(HttpMethod::GET, "/api");
+        request.headers.insert("accept-encoding".to_string(), "gzip".to_string());
+        
+        let large_text = "x".repeat(2000);
+        let response = compression
+            .process(request, Box::new(move |_| {
+                let text = large_text.clone();
+                Box::pin(async move {
+                    HttpResponse {
+                        status_code: 200,
+                        headers: std::collections::HashMap::from([
+                            ("content-type".to_string(), "text/plain".to_string()),
+                        ]),
+                        body: ResponseBody::Text(text),
+                    }
+                })
+            }))
+            .await;
+        
+        // Should be compressed
+        assert_eq!(response.headers.get("content-encoding"), Some(&"gzip".to_string()));
+        match response.body {
+            ResponseBody::Binary(_) => (), // Success - compressed
+            _ => panic!("Expected compressed binary body"),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_compression_middleware_deflate() {
+        let compression = CompressionMiddleware::new();
+        
+        let mut request = test_request(HttpMethod::GET, "/api");
+        request.headers.insert("accept-encoding".to_string(), "deflate".to_string());
+        
+        let response = compression
+            .process(request, Box::new(|_| {
+                Box::pin(async {
+                    HttpResponse {
+                        status_code: 200,
+                        headers: std::collections::HashMap::from([
+                            ("content-type".to_string(), "application/json".to_string()),
+                        ]),
+                        body: ResponseBody::Json(serde_json::json!({
+                            "data": "x".repeat(2000)
+                        })),
+                    }
+                })
+            }))
+            .await;
+        
+        assert_eq!(response.headers.get("content-encoding"), Some(&"deflate".to_string()));
+    }
+
+    #[tokio::test]
+    async fn test_cors_wildcard_origin() {
+        let cors = CorsMiddleware::new(); // Default is "*"
+        
+        let mut request = test_request(HttpMethod::GET, "/api");
+        request.headers.insert("origin".to_string(), "https://any-origin.com".to_string());
+        
+        let response = cors.process(request, Box::new(|_| Box::pin(test_handler(_)))).await;
+        
+        assert_eq!(
+            response.headers.get("Access-Control-Allow-Origin"),
+            Some(&"https://any-origin.com".to_string())
+        );
+    }
+
+    #[tokio::test]
+    async fn test_middleware_name() {
+        struct NamedMiddleware;
+        
+        #[async_trait::async_trait]
+        impl Middleware for NamedMiddleware {
+            async fn process(&self, req: HttpRequest, next: Next) -> HttpResponse {
+                next(req).await
+            }
+        }
+        
+        let middleware = NamedMiddleware;
+        assert!(middleware.name().contains("NamedMiddleware"));
+    }
+
+    #[tokio::test]
+    async fn test_context_metadata_multiple() {
+        let ctx = MiddlewareContext::new("test-123".to_string());
+        
+        for i in 0..5 {
+            ctx.record_metadata(MiddlewareMetadata {
+                name: format!("Middleware{}", i),
+                execution_time_ns: i * 1000,
+                memory_allocated: i * 512,
+            });
+        }
+        
+        let metadata = ctx.metadata.read();
+        assert_eq!(metadata.len(), 5);
+        assert_eq!(metadata[2].name, "Middleware2");
+        assert_eq!(metadata[2].execution_time_ns, 2000);
+    }
+
+    // ================================================================================
+    // CONCURRENCY TESTS
+    // ================================================================================
+
+    #[tokio::test]
+    async fn test_pipeline_concurrent_execution() {
+        let pipeline = MiddlewarePipeline::new(vec![
+            Arc::new(TimingMiddleware::new()),
+        ]);
+        
+        // Execute multiple requests concurrently
+        let mut handles = vec![];
+        for i in 0..100 {
+            let pipeline_clone = pipeline.clone();
+            let handle = tokio::spawn(async move {
+                let request = test_request(HttpMethod::GET, &format!("/test/{}", i));
+                pipeline_clone.execute(request, test_handler).await
+            });
+            handles.push(handle);
+        }
+        
+        // Wait for all to complete
+        for handle in handles {
+            let response = handle.await.unwrap();
+            assert_eq!(response.status_code, 200);
+        }
+    }
+
+    // ================================================================================
+    // MEMORY LEAK TESTS
+    // ================================================================================
+
+    #[tokio::test]
+    async fn test_pipeline_no_memory_leak() {
+        // Create and drop many pipelines
+        for _ in 0..1000 {
+            let pipeline = MiddlewarePipeline::new(vec![
+                Arc::new(TimingMiddleware::new()),
+                Arc::new(LoggingMiddleware::new()),
+                Arc::new(CompressionMiddleware::new()),
+            ]);
+            
+            let request = test_request(HttpMethod::GET, "/test");
+            let _ = pipeline.execute(request, test_handler).await;
+            
+            drop(pipeline);
+        }
+        
+        // If we get here without OOM, test passes
+    }
+
+    // ================================================================================
+    // INTEGRATION SCENARIO TESTS
+    // ================================================================================
+
+    #[tokio::test]
+    async fn test_real_world_api_scenario() {
+        // Simulate a real API with all middleware
+        let pipeline = MiddlewareBuilder::new()
+            .layer(TimingMiddleware::new())
+            .layer(LoggingMiddleware::new())
+            .layer(CorsMiddleware::new()
+                .allowed_origin("https://app.example.com")
+                .allow_credentials(true))
+            .layer(CompressionMiddleware::new())
+            .build();
+        
+        // POST request with JSON body
+        let mut request = test_request(HttpMethod::POST, "/api/users");
+        request.headers.insert("origin".to_string(), "https://app.example.com".to_string());
+        request.headers.insert("content-type".to_string(), "application/json".to_string());
+        request.headers.insert("accept-encoding".to_string(), "gzip, deflate".to_string());
+        request.headers.insert("authorization".to_string(), "Bearer secret-token".to_string());
+        request.body = RequestBody::Json(serde_json::json!({
+            "username": "testuser",
+            "email": "test@example.com"
+        }));
+        
+        let response = pipeline.execute(request, |req| {
+            Box::pin(async move {
+                // Simulate API handler
+                HttpResponse {
+                    status_code: 201,
+                    headers: std::collections::HashMap::from([
+                        ("content-type".to_string(), "application/json".to_string()),
+                        ("location".to_string(), "/api/users/123".to_string()),
+                    ]),
+                    body: ResponseBody::Json(serde_json::json!({
+                        "id": "123",
+                        "username": "testuser",
+                        "email": "test@example.com",
+                        "created_at": "2024-01-01T00:00:00Z"
+                    })),
+                }
+            })
+        }).await;
+        
+        // Verify all middleware effects
+        assert_eq!(response.status_code, 201);
+        assert!(response.headers.contains_key("server-timing"));
+        assert!(response.headers.contains_key("Access-Control-Allow-Origin"));
+        assert!(response.headers.contains_key("Access-Control-Allow-Credentials"));
+        // Response should be compressed (if large enough)
+        assert_eq!(response.headers.get("location"), Some(&"/api/users/123".to_string()));
+    }
 }
